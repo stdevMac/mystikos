@@ -109,8 +109,7 @@ enclave
 
         long myst_syscall_isatty_ocall(int fd);
 
-        int myst_mprotect_ocall(void* addr, size_t len, int prot)
-            transition_using_threads;
+        int myst_mprotect_ocall(void* addr, size_t len, int prot);
 
         /*
         **======================================================================
@@ -156,9 +155,10 @@ enclave
 
         long myst_epoll_wait_ocall(
             int epfd,
-            [in, out, count=maxevents] struct epoll_event* events,
+            [out, count=maxevents] struct epoll_event* events,
             size_t maxevents,
-            int timeout);
+            int timeout)
+            transition_using_threads;
 
         long myst_epoll_ctl_ocall(
             int epfd,
@@ -628,5 +628,18 @@ enclave
             [out] uint32_t* rbx,
             [out] uint32_t* rcx,
             [out] uint32_t* rdx);
+
+        /*
+        **======================================================================
+        **
+        ** console I/O
+        **
+        **======================================================================
+        */
+
+        long myst_write_console_ocall(
+            int fd, /* STDOUT_FILENO or STDERR_FILENO */
+            [in, size=count] const void* buf,
+            size_t count);
     };
 };

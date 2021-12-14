@@ -279,6 +279,14 @@ long myst_syscall_kill(int pid, int sig);
 
 long myst_syscall_sendfile(int out_fd, int in_fd, off_t* offset, size_t count);
 
+long myst_syscall_copy_file_range(
+    int fd_in,
+    off_t* off_in,
+    int fd_out,
+    off_t* off_out,
+    size_t len,
+    unsigned int flags);
+
 long myst_syscall_sethostname(const char* hostname, size_t len);
 
 long myst_syscall_umask(mode_t mask);
@@ -348,12 +356,18 @@ long myst_syscall_fchownat(
     gid_t group,
     int flags);
 
+#define FB_PATH_NOT_EMPTY 0x0000
+#define FB_TYPE_FILE 0x0001
+#define FB_TYPE_DIRECTORY 0x0010
+#define FB_THROW_ERROR_NOFOLLOW 0x00010000
+
 /* Used by XXXXXat() syscalls */
 long myst_get_absolute_path_from_dirfd(
     int dirfd,
-    const char* filename,
+    const char* pathname,
     int flags,
-    char** abspath_out);
+    char** abspath_out,
+    const int flags_behavior);
 
 long myst_syscall_get_process_stack(void** stack, size_t* stack_size);
 

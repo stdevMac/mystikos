@@ -2473,7 +2473,8 @@ static int _remove_dirent(
     ext2_t* ext2,
     ext2_ino_t ino,
     ext2_inode_t* inode,
-    const char* filename)
+    const char* filename,
+    bool rename)
 {
     int ret = 0;
     void* data = NULL;
@@ -2518,7 +2519,7 @@ static int _remove_dirent(
         ECHECK(_count_dirents(ext2, tdata, tsize, &count));
 
         /* expect two entries ("." and "..") */
-        if (count != 2)
+        if (!rename && count != 2)
             ERAISE(-ENOTEMPTY);
     }
 
@@ -2657,8 +2658,10 @@ static int _create_inode(
         inode->i_mode = mode;
 
         /* Set the uid and gid to root */
-        inode->i_uid = euid;
-        inode->i_gid = egid;
+        inode->i_uid = euid & 0xFFFF;
+        inode->i_osd2.linux2.i_uid_h = euid >> 16;
+        inode->i_gid = egid & 0xFFFF;
+        inode->i_osd2.linux2.i_gid_h = egid >> 16;
 
         /* Set the size of this file */
         _inode_set_size(inode, size);
@@ -2716,6 +2719,8 @@ static int _create_dir_inode_and_block(
 
     /* Initialize the inode */
     {
+        uid_t uid = myst_syscall_geteuid();
+        gid_t gid = myst_syscall_getegid();
         const uint32_t t = (uint32_t)time(NULL);
 
         memset(&locals->inode, 0, sizeof(ext2_inode_t));
@@ -2724,8 +2729,10 @@ static int _create_dir_inode_and_block(
         locals->inode.i_mode = (S_IFDIR | mode);
 
         /* Set the uid and gid to root */
-        locals->inode.i_uid = myst_syscall_geteuid();
-        locals->inode.i_gid = myst_syscall_getegid();
+        locals->inode.i_uid = uid & 0xFFFF;
+        locals->inode.i_osd2.linux2.i_uid_h = uid >> 16;
+        locals->inode.i_gid = gid & 0xFFFF;
+        locals->inode.i_osd2.linux2.i_gid_h = gid >> 16;
 
         /* Set the size of this file */
         _inode_set_size(&locals->inode, ext2->block_size);
@@ -3453,8 +3460,9 @@ int ext2_open(
         /* split the path into directory and filename components */
         ECHECK(_split_path(path, locals->dirname, locals->filename));
 
-        /* load the directory inode */
-        ECHECK(_path_to_ino(ext2, locals->dirname, follow, NULL, &dino));
+        /* load the directory inode, symbolic link in the directory part of the
+         * path should always be followed */
+        ECHECK(_path_to_ino(ext2, locals->dirname, FOLLOW, NULL, &dino));
         ECHECK(ext2_read_inode(ext2, dino, &locals->dinode));
 
         /* create a new inode */
@@ -3473,7 +3481,8 @@ int ext2_open(
             ERAISE(-EEXIST);
     }
 
-    if (S_ISLNK(locals->inode.i_mode) && (flags & O_NOFOLLOW))
+    if (S_ISLNK(locals->inode.i_mode) && (flags & O_NOFOLLOW) &&
+        !(flags & O_PATH))
         ERAISE(-ELOOP);
 
     /* fail if not a directory */
@@ -3505,8 +3514,8 @@ int ext2_open(
         file->shared->offset = 0;
         file->shared->open_flags = flags;
         file->shared->access = (flags & O_PATH)
-                           ? O_PATH
-                           : (flags & (O_RDONLY | O_RDWR | O_WRONLY));
+                                   ? O_PATH
+                                   : (flags & (O_RDONLY | O_RDWR | O_WRONLY));
         file->shared->operating = (flags & (O_APPEND | O_NONBLOCK));
         file->shared->use_count = 1;
     }
@@ -4077,7 +4086,8 @@ int ext2_unlink(myst_fs_t* fs, const char* path)
 
     /* remove the directory entry for this file */
     ECHECK(_split_path(path, locals->dirname, locals->filename));
-    ECHECK(_remove_dirent(ext2, dino, &locals->dinode, locals->filename));
+    ECHECK(_remove_dirent(ext2, dino, &locals->dinode, locals->filename,
+        false));
 
     /* unlink the inode */
     ECHECK(_inode_unlink(ext2, ino, &locals->inode));
@@ -4334,7 +4344,7 @@ int ext2_rename(myst_fs_t* fs, const char* oldpath, const char* newpath)
 
         /* unlink newpath */
         ECHECK(_remove_dirent(
-            ext2, new_dino, &locals->new_dinode, locals->new_filename));
+            ext2, new_dino, &locals->new_dinode, locals->new_filename, true));
         ECHECK(_inode_unlink(ext2, new_ino, &locals->new_inode));
     }
     else
@@ -4357,7 +4367,7 @@ int ext2_rename(myst_fs_t* fs, const char* oldpath, const char* newpath)
 
     /* remove the oldpath directory entry */
     ECHECK(_remove_dirent(
-        ext2, old_dino, &locals->old_dinode, locals->old_filename));
+        ext2, old_dino, &locals->old_dinode, locals->old_filename, true));
 
     /* sync the inodes because _remove_dirent() changes the old inode */
     if (new_dino == old_dino)
@@ -4426,8 +4436,12 @@ int ext2_fstat(myst_fs_t* fs, myst_file_t* file, struct stat* statbuf)
     statbuf->st_ino = file->shared->ino;
     statbuf->st_mode = file->shared->inode.i_mode;
     statbuf->st_nlink = file->shared->inode.i_links_count;
-    statbuf->st_uid = file->shared->inode.i_uid;
-    statbuf->st_gid = file->shared->inode.i_gid;
+    statbuf->st_uid =
+        file->shared->inode.i_uid |
+        (((uid_t)file->shared->inode.i_osd2.linux2.i_uid_h) << 16);
+    statbuf->st_gid =
+        file->shared->inode.i_gid |
+        (((uid_t)file->shared->inode.i_osd2.linux2.i_gid_h) << 16);
     statbuf->st_rdev = 0; /* only for special files */
     statbuf->st_size = _inode_get_size(&file->shared->inode);
     statbuf->st_blksize = ext2->block_size;
@@ -4775,7 +4789,7 @@ int ext2_rmdir(myst_fs_t* fs, const char* path)
 
     /* remove the directory entry for this file */
     ECHECK(_split_path(path, locals->dirname, locals->filename));
-    ECHECK(_remove_dirent(ext2, dino, &locals->dinode, locals->filename));
+    ECHECK(_remove_dirent(ext2, dino, &locals->dinode, locals->filename, false));
 
     /* truncate the file to zero size (to return all the blocks) */
     {
@@ -5538,10 +5552,16 @@ static int _chown(ext2_inode_t* inode, uid_t owner, gid_t group)
         ERAISE(-EINVAL);
 
     if (owner != -1)
-        inode->i_uid = owner;
+    {
+        inode->i_uid = owner & 0xFFFF;
+        inode->i_osd2.linux2.i_uid_h = owner >> 16;
+    }
 
     if (group != -1)
-        inode->i_gid = group;
+    {
+        inode->i_gid = group & 0xFFFF;
+        inode->i_osd2.linux2.i_gid_h = group >> 16;
+    }
 
     /* For executables, clear set-user-ID and set-group-ID bits */
     if (inode->i_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
