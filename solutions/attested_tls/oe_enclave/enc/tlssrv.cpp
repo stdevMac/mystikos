@@ -19,12 +19,12 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sstream>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <map>
+#include <sstream>
 #include "tlssrv.h"
 #include "tlssrv_t.h"
 
@@ -766,7 +766,7 @@ int setup_tls_server(const char* server_port)
     int rc = 1;
 
     char* p;
-    unsigned char* t= new unsigned char[1500];
+    unsigned char* t = new unsigned char[1500];
     string s;
     oe_result_t result = OE_FAILURE;
     mbedtls_net_context listen_fd;
@@ -812,7 +812,7 @@ int setup_tls_server(const char* server_port)
     }
 
     printf(" Remote connection established. Ready for service.\n");
-    
+
     /* Read from the client */
     if ((rc = tlssrv_read(tlsServer, t, 1000, &tlsError)) < 0)
     {
@@ -820,12 +820,13 @@ int setup_tls_server(const char* server_port)
         goto exit;
     }
     printf("hashedChars: ");
-    for (int i = 0; i < 32; i++) {
-      printf("%x", t[i]);
+    for (int i = 0; i < 32; i++)
+    {
+        printf("%x", t[i]);
     }
     printf("\n");
-    s= string(reinterpret_cast<char*>(t), rc);
-    printf("Response: %s\nRC: %d\n", s,rc);
+    s = string(reinterpret_cast<char*>(t), rc);
+    printf("Response: %s\nRC: %d\n", s, rc);
 
     printf("Received some information from the client.\n");
 
