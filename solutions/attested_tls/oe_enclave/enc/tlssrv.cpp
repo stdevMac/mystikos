@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sstream>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -550,17 +551,20 @@ int tlssrv_read(
     if (!srv)
     {
         _put_err(err, "invalid srv parameter");
+        ret = -2;
         goto done;
     }
 
     if (!data)
     {
+        ret = -3;
         _put_err(err, "invalid data parameter");
         goto done;
     }
 
     if (!size)
     {
+        ret = -4;
         _put_err(err, "invalid size parameter");
         goto done;
     }
@@ -760,6 +764,10 @@ static oe_result_t verifier(
 int setup_tls_server(const char* server_port)
 {
     int rc = 1;
+
+    char* p;
+    unsigned char* t= new unsigned char[1500];
+    string s;
     oe_result_t result = OE_FAILURE;
     mbedtls_net_context listen_fd;
 
@@ -803,6 +811,24 @@ int setup_tls_server(const char* server_port)
         goto exit;
     }
 
+    printf(" Remote connection established. Ready for service.\n");
+    
+    /* Read from the client */
+    if ((rc = tlssrv_read(tlsServer, t, 1000, &tlsError)) < 0)
+    {
+        printf(" failed! couldn't read from the client %d\n\n", rc);
+        goto exit;
+    }
+    printf("hashedChars: ");
+    for (int i = 0; i < 32; i++) {
+      printf("%x", t[i]);
+    }
+    printf("\n");
+    s= string(reinterpret_cast<char*>(t), rc);
+    printf("Response: %s\nRC: %d\n", s,rc);
+
+    printf("Received some information from the client.\n");
+
     // Allow time out
     mbedtls_ssl_set_bio(
         &tlsServer->ssl,
@@ -812,9 +838,6 @@ int setup_tls_server(const char* server_port)
         mbedtls_net_recv_timeout);
 
     rc = 0;
-
-    printf(" Remote connection established. Ready for service.\n");
-
 exit:
     if (tlsServer)
     {
