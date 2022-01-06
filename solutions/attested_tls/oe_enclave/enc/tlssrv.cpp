@@ -13,7 +13,8 @@
 #include <mbedtls/x509_crl.h>
 #include <mbedtls/x509_crt.h>
 #include <openenclave/enclave.h>
-
+#include <iostream>
+#include <iomanip>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -767,7 +768,8 @@ int setup_tls_server(const char* server_port)
 
     char* p;
     unsigned char* t = new unsigned char[1500];
-    string s;
+    std::stringstream ss;
+    string s{};
     oe_result_t result = OE_FAILURE;
     mbedtls_net_context listen_fd;
 
@@ -777,7 +779,8 @@ int setup_tls_server(const char* server_port)
         printf(
             "oe_load_module_host_resolver failed with %s\n",
             oe_result_str(result));
-        goto exit;
+    mbedtls_net_free(&client_fd);
+    return rc;
     }
 
     if ((result = oe_load_module_host_socket_interface()) != OE_OK)
@@ -785,20 +788,23 @@ int setup_tls_server(const char* server_port)
         printf(
             "oe_load_module_host_socket_interface failed with %s\n",
             oe_result_str(result));
-        goto exit;
+    mbedtls_net_free(&client_fd);
+    return rc;
     }
 
     if ((rc = tlssrv_startup(&tlsError)) != 0)
     {
         printf(" failed! tlssrv_startup returned %d\n\n", rc);
-        goto exit;
+    mbedtls_net_free(&client_fd);
+    return rc;
     }
 
     if ((rc = tlssrv_create(
              NULL, server_port, verifier, NULL, &tlsServer, &tlsError)) != 0)
     {
         printf(" failed! tlssrv_create returned %d\n\n", rc);
-        goto exit;
+    mbedtls_net_free(&client_fd);
+    return rc;
     }
 
     printf("\n Server in enclave: Waiting for a trusted connection\n");
@@ -808,7 +814,8 @@ int setup_tls_server(const char* server_port)
     if ((rc = tlssrv_accept(tlsServer, &client_fd, &tlsError)) != 0)
     {
         printf(" failed! tlssrv_accept returned %d\n\n", rc);
-        goto exit;
+    mbedtls_net_free(&client_fd);
+    return rc;
     }
 
     printf(" Remote connection established. Ready for service.\n");
@@ -817,16 +824,26 @@ int setup_tls_server(const char* server_port)
     if ((rc = tlssrv_read(tlsServer, t, 1000, &tlsError)) < 0)
     {
         printf(" failed! couldn't read from the client %d\n\n", rc);
-        goto exit;
+    mbedtls_net_free(&client_fd);
+    return rc;
     }
     printf("hashedChars: ");
-    for (int i = 0; i < 32; i++)
+    for (int i = 0; i < 100; i++)
     {
         printf("%x", t[i]);
     }
     printf("\n");
-    s = string(reinterpret_cast<char*>(t), rc);
-    printf("Response: %s\nRC: %d\n", s, rc);
+    for (int i = 0; i < 128; i++)
+        {
+            ss << std::hex << std::setfill('0');
+            ss << std::setw(2)  << static_cast<unsigned>(t[i]);
+        }
+    const unsigned char* o = reinterpret_cast<const unsigned char *>(t);
+    auto q = std::string(reinterpret_cast<const char*>(o));
+   std::cout << "hi " << std::string(reinterpret_cast<const char*>(o)) << "\n";
+//s = string(reinterpret_cast<char*>(t), rc);
+    std::cout << "Response with cout: " << q << "\n";
+    printf("Response with printf: %s\nRC: %d\nSIZE: %d\n", q, rc, q.size());
 
     printf("Received some information from the client.\n");
 
@@ -852,4 +869,5 @@ exit:
     }
     mbedtls_net_free(&client_fd);
     return rc;
+
 }

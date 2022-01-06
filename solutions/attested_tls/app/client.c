@@ -163,7 +163,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "server: failed to establish channel\n");
         goto done;
     }
-    unsigned char ip[] = "Testing strings";
+    unsigned char ip[] = "805fee1677236beca1643dd37b4c03a2fa75188d6bc65b26ae8321ceb1b0f5ff";
     printf("%s\n", ip);
     tlscli_write(trustedChannel, &ip, sizeof(ip), &tlsError);
 
