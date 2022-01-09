@@ -1,3 +1,5 @@
+#include "tlssrv.h"
+#include <assert.h>
 #include <mbedtls/certs.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/debug.h>
@@ -13,9 +15,6 @@
 #include <mbedtls/x509_crl.h>
 #include <mbedtls/x509_crt.h>
 #include <openenclave/enclave.h>
-#include <iostream>
-#include <iomanip>
-#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,9 +23,10 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <iomanip>
+#include <iostream>
 #include <map>
 #include <sstream>
-#include "tlssrv.h"
 #include "tlssrv_t.h"
 
 #include "gencreds.h"
@@ -780,8 +780,8 @@ int setup_tls_server(const char* server_port)
         printf(
             "oe_load_module_host_resolver failed with %s\n",
             oe_result_str(result));
-    mbedtls_net_free(&client_fd);
-    return rc;
+        mbedtls_net_free(&client_fd);
+        return rc;
     }
 
     if ((result = oe_load_module_host_socket_interface()) != OE_OK)
@@ -789,23 +789,23 @@ int setup_tls_server(const char* server_port)
         printf(
             "oe_load_module_host_socket_interface failed with %s\n",
             oe_result_str(result));
-    mbedtls_net_free(&client_fd);
-    return rc;
+        mbedtls_net_free(&client_fd);
+        return rc;
     }
 
     if ((rc = tlssrv_startup(&tlsError)) != 0)
     {
         printf(" failed! tlssrv_startup returned %d\n\n", rc);
-    mbedtls_net_free(&client_fd);
-    return rc;
+        mbedtls_net_free(&client_fd);
+        return rc;
     }
 
     if ((rc = tlssrv_create(
              NULL, server_port, verifier, NULL, &tlsServer, &tlsError)) != 0)
     {
         printf(" failed! tlssrv_create returned %d\n\n", rc);
-    mbedtls_net_free(&client_fd);
-    return rc;
+        mbedtls_net_free(&client_fd);
+        return rc;
     }
 
     printf("\n Server in enclave: Waiting for a trusted connection\n");
@@ -815,8 +815,8 @@ int setup_tls_server(const char* server_port)
     if ((rc = tlssrv_accept(tlsServer, &client_fd, &tlsError)) != 0)
     {
         printf(" failed! tlssrv_accept returned %d\n\n", rc);
-    mbedtls_net_free(&client_fd);
-    return rc;
+        mbedtls_net_free(&client_fd);
+        return rc;
     }
 
     printf(" Remote connection established. Ready for service.\n");
@@ -825,8 +825,8 @@ int setup_tls_server(const char* server_port)
     if ((rc = tlssrv_read(tlsServer, t, 1000, &tlsError)) < 0)
     {
         printf(" failed! couldn't read from the client %d\n\n", rc);
-    mbedtls_net_free(&client_fd);
-    return rc;
+        mbedtls_net_free(&client_fd);
+        return rc;
     }
     printf("hashedChars: ");
     for (int i = 0; i < 100; i++)
@@ -835,14 +835,14 @@ int setup_tls_server(const char* server_port)
     }
     printf("\n");
     for (int i = 0; i < 128; i++)
-        {
-            ss << std::hex << std::setfill('0');
-            ss << std::setw(2)  << static_cast<unsigned>(t[i]);
-        }
-    const unsigned char* o = reinterpret_cast<const unsigned char *>(t);
+    {
+        ss << std::hex << std::setfill('0');
+        ss << std::setw(2) << static_cast<unsigned>(t[i]);
+    }
+    const unsigned char* o = reinterpret_cast<const unsigned char*>(t);
     auto q = std::string(reinterpret_cast<const char*>(o));
-   std::cout << "hi " << std::string(reinterpret_cast<const char*>(o)) << "\n";
-//s = string(reinterpret_cast<char*>(t), rc);
+    std::cout << "hi " << std::string(reinterpret_cast<const char*>(o)) << "\n";
+    // s = string(reinterpret_cast<char*>(t), rc);
     std::cout << "Response with cout: " << q << "\n";
     printf("Response with printf: %s\nRC: %d\nSIZE: %d\n", q, rc, q.size());
 
@@ -853,7 +853,8 @@ int setup_tls_server(const char* server_port)
         mbedtls_net_free(&client_fd);
         return rc;
     }
-    const unsigned char* coinbase_middle = reinterpret_cast<const unsigned char*>(coinbase_message);
+    const unsigned char* coinbase_middle =
+        reinterpret_cast<const unsigned char*>(coinbase_message);
     auto coinbase = std::string(reinterpret_cast<const char*>(coinbase_middle));
     std::cout << "Response with cout: " << coinbase << "\n";
 
@@ -881,5 +882,4 @@ exit:
     }
     mbedtls_net_free(&client_fd);
     return rc;
-
 }
