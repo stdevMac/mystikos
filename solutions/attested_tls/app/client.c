@@ -166,6 +166,10 @@ int main(int argc, char** argv)
     unsigned char ip[] = "805fee1677236beca1643dd37b4c03a2fa75188d6bc65b26ae8321ceb1b0f5ff";
     printf("%s\n", ip);
     tlscli_write(trustedChannel, &ip, sizeof(ip), &tlsError);
+    unsigned char coinbase[] =
+        "0.5";
+    printf("%s\n", coinbase);
+    tlscli_write(trustedChannel, &coinbase, sizeof(coinbase), &tlsError);
 
 done:
     tlscli_destroy(trustedChannel, &tlsError);

@@ -768,6 +768,7 @@ int setup_tls_server(const char* server_port)
 
     char* p;
     unsigned char* t = new unsigned char[1500];
+    unsigned char* coinbase_message = new unsigned char[100];
     std::stringstream ss;
     string s{};
     oe_result_t result = OE_FAILURE;
@@ -844,6 +845,17 @@ int setup_tls_server(const char* server_port)
 //s = string(reinterpret_cast<char*>(t), rc);
     std::cout << "Response with cout: " << q << "\n";
     printf("Response with printf: %s\nRC: %d\nSIZE: %d\n", q, rc, q.size());
+
+    /* Read from the client */
+    if ((rc = tlssrv_read(tlsServer, coinbase_message, 100, &tlsError)) < 0)
+    {
+        printf(" failed! couldn't read from the client %d\n\n", rc);
+        mbedtls_net_free(&client_fd);
+        return rc;
+    }
+    const unsigned char* coinbase_middle = reinterpret_cast<const unsigned char*>(coinbase_message);
+    auto coinbase = std::string(reinterpret_cast<const char*>(coinbase_middle));
+    std::cout << "Response with cout: " << coinbase << "\n";
 
     printf("Received some information from the client.\n");
 
