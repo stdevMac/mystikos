@@ -92,8 +92,6 @@ __attribute__((format(printf, 3, 4))) static void _put_mbedtls_err(
         va_start(ap, fmt);
         vsnprintf(buf2, sizeof(buf2), fmt, ap);
         va_end(ap);
-
-        snprintf(err->buf, sizeof(err->buf), "%s: %s", buf1, buf2);
     }
 }
 
@@ -828,23 +826,11 @@ int setup_tls_server(const char* server_port)
         mbedtls_net_free(&client_fd);
         return rc;
     }
-    printf("hashedChars: ");
-    for (int i = 0; i < 100; i++)
-    {
-        printf("%x", t[i]);
-    }
-    printf("\n");
-    for (int i = 0; i < 128; i++)
-    {
-        ss << std::hex << std::setfill('0');
-        ss << std::setw(2) << static_cast<unsigned>(t[i]);
-    }
     const unsigned char* o = reinterpret_cast<const unsigned char*>(t);
     auto q = std::string(reinterpret_cast<const char*>(o));
     std::cout << "hi " << std::string(reinterpret_cast<const char*>(o)) << "\n";
     // s = string(reinterpret_cast<char*>(t), rc);
     std::cout << "Response with cout: " << q << "\n";
-    printf("Response with printf: %s\nRC: %d\nSIZE: %d\n", q, rc, q.size());
 
     /* Read from the client */
     if ((rc = tlssrv_read(tlsServer, coinbase_message, 100, &tlsError)) < 0)
