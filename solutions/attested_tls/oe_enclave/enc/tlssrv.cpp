@@ -1,5 +1,5 @@
-#include "tlssrv.h"
 #include <assert.h>
+#include <curl/curl.h>
 #include <mbedtls/certs.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/debug.h>
@@ -25,9 +25,9 @@
 #include <unistd.h>
 #include <iomanip>
 #include <iostream>
-#include <map>
+//#include <map>
 #include <sstream>
-#include "tlssrv_t.h"
+#include "tlssrv.h"
 
 #include "gencreds.h"
 
@@ -760,6 +760,13 @@ static oe_result_t verifier(
     return OE_OK;
 }
 
+size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp)
+{
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+
 int setup_tls_server(const char* server_port)
 {
     int rc = 1;
@@ -767,6 +774,7 @@ int setup_tls_server(const char* server_port)
     char* p;
     unsigned char* t = new unsigned char[1500];
     unsigned char* coinbase_message = new unsigned char[100];
+    unsigned char* rlp_message = new unsigned char[3000];
     std::stringstream ss;
     string s{};
     oe_result_t result = OE_FAILURE;
@@ -855,6 +863,88 @@ int setup_tls_server(const char* server_port)
         mbedtls_net_recv_timeout);
 
     rc = 0;
+
+    std::cout << "Connecting to geth node and getting PoW from the header\n";
+  CURLcode ret;
+  CURL *hnd;
+  struct curl_slist *slist1;
+  std::string readBuffer;
+  slist1 = NULL;
+  slist1 = curl_slist_append(slist1, "Content-Type: application/json");
+
+  hnd = curl_easy_init();
+  curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
+  curl_easy_setopt(hnd, CURLOPT_URL, "localhost:8502");
+  curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+  string to_send = "{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"miner_mine\",\"params\":[\"0x" + q +"\"]}";
+  curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, to_send.c_str());
+  curl_easy_setopt(hnd, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)to_send.length());
+  curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
+  curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.58.0");
+  curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+  curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+  curl_easy_setopt(hnd, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_easy_setopt(hnd, CURLOPT_FTP_SKIP_PASV_IP, 1L);
+  curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
+  curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteCallback);
+  curl_easy_setopt(hnd, CURLOPT_WRITEDATA, &readBuffer);
+
+
+  ret = curl_easy_perform(hnd);
+
+  std::cout << "Response from PoW: " << readBuffer << "\n"; 
+
+  curl_easy_cleanup(hnd);
+  hnd = NULL;
+  curl_slist_free_all(slist1);
+  slist1 = NULL;
+
+    // Sending PoW 
+    //unsigned char dataS[3000];
+    //strcpy(reinterpret_cast<char*>(dataS), readBuffer.c_str());  //unsigned char pow_resp[] = ret; 
+    //tlssrv_write(tlsServer, dataS, sizeof(dataS), &tlsError);
+
+    /* Read from the client */
+    if ((rc = tlssrv_read(tlsServer, rlp_message, 3000, &tlsError)) < 0)
+    {
+        printf(" failed! couldn't read from the client %d\n\n", rc);
+        mbedtls_net_free(&client_fd);
+        return rc;
+    }
+    const unsigned char* rlp_middle =
+        reinterpret_cast<const unsigned char*>(rlp_message);
+    auto rlp = std::string(reinterpret_cast<const char*>(rlp_middle));
+
+    printf("Received rlp of the block from the client.\n");
+    printf("Sending rlp of the block to miner.\n");
+
+  slist1 = NULL;
+  slist1 = curl_slist_append(slist1, "Content-Type: application/json");
+
+  string to_send_2 = "{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"miner_mine\",\"params\":[\"" + rlp +"\"]}";
+  
+  hnd = curl_easy_init();
+  curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
+  curl_easy_setopt(hnd, CURLOPT_URL, "localhost:8502");
+  curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+  curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, to_send_2.c_str());
+  curl_easy_setopt(hnd, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)to_send_2.size()*2);
+  curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
+  curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.58.0");
+  curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+  curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+  curl_easy_setopt(hnd, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_easy_setopt(hnd, CURLOPT_FTP_SKIP_PASV_IP, 1L);
+  curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
+
+  ret = curl_easy_perform(hnd);
+
+    std::cout << ret << "\n";
+  curl_easy_cleanup(hnd);
+  hnd = NULL;
+  curl_slist_free_all(slist1);
+  slist1 = NULL;
+
 exit:
     if (tlsServer)
     {

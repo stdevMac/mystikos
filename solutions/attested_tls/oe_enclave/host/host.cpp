@@ -57,7 +57,7 @@ int main(int argc, const char* argv[])
         ret = -1;
         goto exit;
     }
-    sleep(60);
+    sleep(300);
 
 exit:
     if (enclave)

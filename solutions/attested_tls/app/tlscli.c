@@ -441,7 +441,7 @@ done:
     return ret;
 }
 
-int tlscli_read(tlscli_t* cli, void* data, size_t size, tlscli_err_t* err)
+int tlscli_read(tlscli_t* cli, unsigned char* data, size_t size, tlscli_err_t* err)
 {
     int ret = -1;
     int r;
