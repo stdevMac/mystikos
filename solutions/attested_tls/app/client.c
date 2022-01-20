@@ -169,7 +169,9 @@ int main(int argc, char** argv)
         "805fee1677236beca1643dd37b4c03a2fa75188d6bc65b26ae8321ceb1b0f5ff";
     tlscli_write(trustedChannel, &ip, sizeof(ip), &tlsError);
     // Sending Coinbase
-    unsigned char coinbase[] = "5000000000000000000";
+    unsigned char coinbase[] = "400000000000000000";
+    srand(time(NULL));
+    coinbase[0] = rand() % 9 + '1';
     tlscli_write(trustedChannel, &coinbase, sizeof(coinbase), &tlsError);
 
     // Getting PoW for Header

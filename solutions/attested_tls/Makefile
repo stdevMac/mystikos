@@ -21,7 +21,10 @@ run:
 	@oe_enclave/host/tlssrv_host oe_enclave/enc/tlssrv_enc.signed hw &
 	@echo "OE Enclave app started..."
 	# Launch the TLS client with myst
-	#$(MYST_EXEC) rootfs /app/client 127.0.0.1 $(OPTS)
+	echo "Runnig first client"
+	$(MYST_EXEC) rootfs /app/client 127.0.0.1 $(OPTS)
+	echo "Runnig second client"
+	$(MYST_EXEC) rootfs /app/client 127.0.0.1 $(OPTS)
 	@wait
 
 myst:
