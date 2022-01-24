@@ -765,7 +765,7 @@ size_t WriteCallback(char* contents, size_t size, size_t nmemb, void* userp)
     return size * nmemb;
 }
 
-int send_work_to_miner(const std::string& q)
+int send_work_to_miner(const std::string& q, const std::string& rlp)
 {
     std::cout << "Connecting to geth node and getting PoW from the header\n";
 
@@ -804,6 +804,28 @@ int send_work_to_miner(const std::string& q)
     hnd = NULL;
     curl_slist_free_all(slist1);
     slist1 = NULL;
+
+    // Sending PoWV
+    // unsigned char dataS[3000];
+    // strcpy(reinterpret_cast<char*>(dataS), readBuffer.c_str());  //unsigned
+    // char pow_resp[] = ret; tlssrv_write(tlsServer, dataS, sizeof(dataS),
+    // &tlsError);
+    std::cout << "Sending PoW for block searcher sgx"
+              << "\n";
+
+    /* Read from the client */
+    if ((rc = tlssrv_read(tlsServer, rlp_message, 3000, &tlsError)) < 0)
+    {
+        printf(" failed! couldn't read from the client %d\n\n", rc);
+        mbedtls_net_free(&client_fd);
+        return rc;
+    }
+    const unsigned char* rlp_middle =
+            reinterpret_cast<const unsigned char*>(rlp_message);
+    rlp = std::string(reinterpret_cast<const char*>(rlp_middle));
+
+    std::cout << "Getting Block rlp from searcher sgx"
+              << "\n";
 }
 
 int send_rlp_to_miner(const std::string& rlp)
@@ -843,7 +865,7 @@ int send_rlp_to_miner(const std::string& rlp)
     slist1 = NULL;
 }
 
-int process_client(std::string& q, std::string& coinbase, std::string& rlp)
+int process_client(std::string& q, std::string& coinbase)
 {
     unsigned char* t = new unsigned char[1500];
     unsigned char* coinbase_message = new unsigned char[100];
@@ -885,28 +907,6 @@ int process_client(std::string& q, std::string& coinbase, std::string& rlp)
         mbedtls_net_recv_timeout);
 
     rc = 0;
-
-    // Sending PoWV
-    // unsigned char dataS[3000];
-    // strcpy(reinterpret_cast<char*>(dataS), readBuffer.c_str());  //unsigned
-    // char pow_resp[] = ret; tlssrv_write(tlsServer, dataS, sizeof(dataS),
-    // &tlsError);
-    std::cout << "Sending PoW for block searcher sgx"
-              << "\n";
-
-    /* Read from the client */
-    if ((rc = tlssrv_read(tlsServer, rlp_message, 3000, &tlsError)) < 0)
-    {
-        printf(" failed! couldn't read from the client %d\n\n", rc);
-        mbedtls_net_free(&client_fd);
-        return rc;
-    }
-    const unsigned char* rlp_middle =
-        reinterpret_cast<const unsigned char*>(rlp_message);
-    rlp = std::string(reinterpret_cast<const char*>(rlp_middle));
-
-    std::cout << "Getting Block rlp from searcher sgx"
-              << "\n";
 
     return rc;
 }
@@ -982,9 +982,8 @@ int setup_tls_server(const char* server_port)
             conn_number = i + 1;
         }
     }
-    std::cout << "Best coinbase: " << best_coinbase << std::endl;
-    std::cout << "Best hash: " << best_q << std::endl;
-    send_work_to_miner(best_q);
+    std::cout << "Best hash and coinbase: " << best_q << ", " << best_coinbase << std::endl;
+    send_work_to_miner(best_q, best_rlp);
     send_rlp_to_miner(best_rlp);
 
 exit:
