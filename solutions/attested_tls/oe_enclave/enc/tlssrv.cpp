@@ -812,6 +812,8 @@ int send_work_to_miner(const std::string& q, const std::string& rlp)
     // &tlsError);
     std::cout << "Sending PoW for block searcher sgx"
               << "\n";
+    unsigned char* rlp_message = new unsigned char[3000];
+    int rc = 0;
 
     /* Read from the client */
     if ((rc = tlssrv_read(tlsServer, rlp_message, 3000, &tlsError)) < 0)
