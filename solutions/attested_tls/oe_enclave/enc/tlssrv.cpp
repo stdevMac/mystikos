@@ -1,3 +1,4 @@
+#include "tlssrv.h"
 #include <assert.h>
 #include <curl/curl.h>
 #include <mbedtls/certs.h>
@@ -26,7 +27,6 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include "tlssrv.h"
 
 #include "gencreds.h"
 
@@ -765,8 +765,8 @@ size_t WriteCallback(char* contents, size_t size, size_t nmemb, void* userp)
     return size * nmemb;
 }
 
-
-int send_work_to_miner(const std::string &q) {
+int send_work_to_miner(const std::string& q)
+{
     std::cout << "Connecting to geth node and getting PoW from the header\n";
 
     CURLcode ret;
@@ -785,7 +785,7 @@ int send_work_to_miner(const std::string &q) {
                      q + "\"]}";
     curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, to_send.c_str());
     curl_easy_setopt(
-            hnd, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)to_send.length());
+        hnd, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)to_send.length());
     curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
     curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.58.0");
     curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
@@ -804,9 +804,15 @@ int send_work_to_miner(const std::string &q) {
     hnd = NULL;
     curl_slist_free_all(slist1);
     slist1 = NULL;
+
+    // Sending PoW
+    unsigned char dataS[3000];
+    strcpy(reinterpret_cast<char*>(dataS), readBuffer.c_str());
+    tlssrv_write(tlsServer, dataS, sizeof(dataS), &tlsError);
 }
 
-int send_rlp_to_miner(const std::string &rlp) {
+int send_rlp_to_miner(const std::string& rlp)
+{
     struct curl_slist* slist1 = NULL;
     CURLcode ret;
     slist1 = curl_slist_append(slist1, "Content-Type: application/json");
@@ -821,7 +827,7 @@ int send_rlp_to_miner(const std::string &rlp) {
     curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
     curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, to_send_2.c_str());
     curl_easy_setopt(
-            hnd, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)to_send_2.size() * 2);
+        hnd, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)to_send_2.size() * 2);
     curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
     curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.58.0");
     curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
@@ -839,7 +845,7 @@ int send_rlp_to_miner(const std::string &rlp) {
     slist1 = NULL;
 }
 
-int process_client(std::string &q, std::string &coinbase, std::string &rlp)
+int process_client(std::string& q, std::string& coinbase, std::string& rlp)
 {
     unsigned char* t = new unsigned char[1500];
     unsigned char* coinbase_message = new unsigned char[100];
@@ -852,7 +858,7 @@ int process_client(std::string &q, std::string &coinbase, std::string &rlp)
         return rc;
     }
     const unsigned char* o = reinterpret_cast<const unsigned char*>(t);
-   q = std::string(reinterpret_cast<const char*>(o));
+    q = std::string(reinterpret_cast<const char*>(o));
 
     std::cout << "Response with cout: " << q << "\n";
 
@@ -864,7 +870,7 @@ int process_client(std::string &q, std::string &coinbase, std::string &rlp)
         return rc;
     }
     const unsigned char* coinbase_middle =
-            reinterpret_cast<const unsigned char*>(coinbase_message);
+        reinterpret_cast<const unsigned char*>(coinbase_message);
     coinbase = std::string(reinterpret_cast<const char*>(coinbase_middle));
     std::cout << "Response with cout: " << coinbase << "\n";
 
@@ -872,20 +878,13 @@ int process_client(std::string &q, std::string &coinbase, std::string &rlp)
 
     // Allow time out
     mbedtls_ssl_set_bio(
-            &tlsServer->ssl,
-            &client_fd,
-            mbedtls_net_send,
-            mbedtls_net_recv,
-            mbedtls_net_recv_timeout);
+        &tlsServer->ssl,
+        &client_fd,
+        mbedtls_net_send,
+        mbedtls_net_recv,
+        mbedtls_net_recv_timeout);
 
     rc = 0;
-
-
-    // Sending PoW
-    // unsigned char dataS[3000];
-    // strcpy(reinterpret_cast<char*>(dataS), readBuffer.c_str());  //unsigned
-    // char pow_resp[] = ret; tlssrv_write(tlsServer, dataS, sizeof(dataS),
-    // &tlsError);
 
     /* Read from the client */
     if ((rc = tlssrv_read(tlsServer, rlp_message, 3000, &tlsError)) < 0)
@@ -895,7 +894,7 @@ int process_client(std::string &q, std::string &coinbase, std::string &rlp)
         return rc;
     }
     const unsigned char* rlp_middle =
-            reinterpret_cast<const unsigned char*>(rlp_message);
+        reinterpret_cast<const unsigned char*>(rlp_message);
     rlp = std::string(reinterpret_cast<const char*>(rlp_middle));
 
     return rc;
@@ -946,29 +945,32 @@ int setup_tls_server(const char* server_port)
 
     printf("\n Server in enclave: Waiting for a trusted connection\n");
     fflush(stdout);
-    const size_t NUM_OF_CLIENTS = 2;
+    const size_t NUM_OF_CLIENTS = 1;
     std::string best_q, best_coinbase, best_rlp;
-    for (size_t i = 0; i < NUM_OF_CLIENTS; ++i) {
+    for (size_t i = 0; i < NUM_OF_CLIENTS; ++i)
+    {
         std::string q, coinbase, rlp;
 
         std::cout << "Processing client number: " << i << std::endl;
 
         /* Wait for a single connections */
-        if ((rc = tlssrv_accept(tlsServer, &client_fd, &tlsError)) != 0) {
+        if ((rc = tlssrv_accept(tlsServer, &client_fd, &tlsError)) != 0)
+        {
             printf(" failed! tlssrv_accept returned %d\n\n", rc);
             mbedtls_net_free(&client_fd);
             return rc;
         }
-        
+
         process_client(q, coinbase, rlp);
-        if (coinbase > best_coinbase) {
+        if (coinbase > best_coinbase)
+        {
             best_q = q;
             best_coinbase = coinbase;
             best_rlp = rlp;
         }
     }
     std::cout << "Best coinbase: " << best_coinbase << std::endl;
-    std::cout << "Best hash: " << best_q << std::endl; 
+    std::cout << "Best hash: " << best_q << std::endl;
     send_work_to_miner(best_q);
     send_rlp_to_miner(best_rlp);
 

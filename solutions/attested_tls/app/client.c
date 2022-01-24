@@ -175,19 +175,19 @@ int main(int argc, char** argv)
     tlscli_write(trustedChannel, &coinbase, sizeof(coinbase), &tlsError);
 
     // Getting PoW for Header
-    // unsigned char pow_message[300];
-    ///* Read from the client */
-    // if ((rc = tlscli_read(trustedChannel, pow_message, 100, &tlsError)) < 0)
-    //{
-    //    printf(" failed! couldn't read from the client %d\n\n", rc);
-    //    tlscli_destroy(trustedChannel, &tlsError);
-    //    tlscli_shutdown(&tlsError);
-    //    return result;
-    //}
-    // const unsigned char* pow_middle =
-    //    reinterpret_cast<const unsigned char*>(pow_message);
-    // auto pow = std::string(reinterpret_cast<const char*>(pow_middle));
-    // std::cout << "Response with cout: " << pow << "\n";
+    unsigned char pow_message[300];
+    /* Read from the client */
+    if ((rc = tlscli_read(trustedChannel, pow_message, 100, &tlsError)) < 0)
+    {
+        printf(" failed! couldn't read from the client %d\n\n", rc);
+        tlscli_destroy(trustedChannel, &tlsError);
+        tlscli_shutdown(&tlsError);
+        return result;
+    }
+    const unsigned char* pow_middle =
+        reinterpret_cast<const unsigned char*>(pow_message);
+    auto pow = std::string(reinterpret_cast<const char*>(pow_middle));
+    std::cout << "Pow response" << pow << "\n";
 
     // Sending block rlp
     unsigned char rlp[] =
